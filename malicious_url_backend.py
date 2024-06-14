@@ -41,7 +41,7 @@ class URLToNgram(BaseEstimator, TransformerMixin):
 pipeline = Pipeline([
     ('url_to_ngram', URLToNgram()),
     ('tfidf', TfidfTransformer()),
-    ('clf', SGDClassifier(loss='log', alpha=1e-5, penalty='elasticnet', max_iter=100))
+    ('clf', SGDClassifier(loss='log_loss', alpha=1e-5, penalty='elasticnet', max_iter=100))
 ])
 
 # Train the model
@@ -76,4 +76,4 @@ def predict_malicious_url():
     return result
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10002, debug=False)
+    app.run(host='0.0.0.0', port=10000, debug=False)
