@@ -12,8 +12,56 @@ import re
 import mysql.connector
 from mysql.connector import pooling
 from datetime import datetime
+import time
 
 app = Flask(__name__)
+
+# Database configuration
+db_config = {
+    "host": "sql12.freesqldatabase.com",
+    "user": "sql12714674",
+    "password": "15cCYtDhUC",
+    "database": "sql12714674"
+}
+
+# Create a connection pool
+connection_pool = mysql.connector.pooling.MySQLConnectionPool(
+    pool_name="mypool",
+    pool_size=3,
+    **db_config
+)
+
+def get_db_connection():
+    try:
+        return connection_pool.get_connection()
+    except mysql.connector.errors.PoolError as e:
+        print(f"Error getting connection from pool: {e}")
+        time.sleep(1)  # wait before retrying
+        return get_db_connection()
+
+def execute_db_operation(operation):
+    max_retries = 3
+    retry_delay = 1
+    for attempt in range(max_retries):
+        connection = None
+        try:
+            connection = get_db_connection()
+            cursor = connection.cursor()
+            result = operation(cursor)
+            connection.commit()
+            return result
+        except mysql.connector.Error as err:
+            print(f"Database error: {err}")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+                retry_delay *= 2
+            else:
+                raise
+        finally:
+            if connection and connection.is_connected():
+                cursor.close()
+                connection.close()
+
 
 # Load the data for training
 data = pd.read_csv('m_data2.csv')
