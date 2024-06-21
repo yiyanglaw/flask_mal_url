@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -9,6 +9,9 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.linear_model import SGDClassifier
 import re
+import mysql.connector
+from mysql.connector import pooling
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -69,11 +72,35 @@ def predict_malicious_url():
     url = request.form['url']
     url = preprocess_url(url)
     prediction = pipeline.predict([url])[0]
-    if prediction == 1:
-        result = 'Malicious URL'
-    else:
-        result = 'Safe URL'
+    result = 'Malicious URL' if prediction == 1 else 'Safe URL'
+    
+    def insert_prediction(cursor):
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        query = "INSERT INTO malicious_url_predictions (url, result, created_at) VALUES (%s, %s, %s)"
+        values = (url[:255], result, current_time)
+        cursor.execute(query, values)
+    
+    execute_db_operation(insert_prediction)
+    
     return result
+
+@app.route('/malicious/history', methods=['GET'])
+def get_malicious_url_history():
+    def fetch_history(cursor):
+        query = "SELECT url, result, created_at FROM malicious_url_predictions ORDER BY created_at DESC LIMIT 50"
+        cursor.execute(query)
+        return cursor.fetchall()
+    
+    predictions = execute_db_operation(fetch_history)
+    predictions_list = [
+        {
+            'url': prediction[0],
+            'result': prediction[1],
+            'created_at': prediction[2].strftime("%Y-%m-%d %H:%M:%S")
+        }
+        for prediction in predictions
+    ]
+    return jsonify(predictions_list)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000, debug=False)
